@@ -1,9 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,69 +10,61 @@ datasource db {
 
 model User {
   id        String   @id @default(cuid())
-  name      String
+  clerkId   String   @unique
   email     String   @unique
+  name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tasks Task[]
-  
+  projects  Project[]
+  tasks     Task[]
+
   @@map("users")
 }
 
-model Board {
-  id        String   @id @default(cuid())
-  title     String   @default("Project Kanban Board")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tasks       Task[]
 
-  columns BoardColumn[]
-  
-  @@map("boards")
-}
-
-model BoardColumn {
-  id      String @id @default(cuid())
-  name    String
-  type    ColumnType // 'todo', 'inprogress', 'done'
-  order   Int    @default(0)
-  
-  boardId String
-  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  
-  tasks   Task[]
-  
-  @@map("board_columns")
+  @@map("projects")
 }
 
 model Task {
   id          String   @id @default(cuid())
   title       String
   description String?
-  priority    Priority @default(Medium)
+  status      TaskStatus @default(TODO)
+  priority    Priority @default(MEDIUM)
   dueDate     DateTime?
-  tags        String[] // Stored as text array in PostgreSQL
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  columnId      String
-  column        BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  
+  tags        String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   assignedUserId String?
-  assignedUser   User?     @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+  assignedUser   User?   @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
 
   @@map("tasks")
 }
 
-enum ColumnType {
-  todo
-  inprogress
-  done
+enum TaskStatus {
+  TODO
+  INPROGRESS
+  DONE
 }
 
 enum Priority {
-  Low
-  Medium
-  High
+  LOW
+  MEDIUM
+  HIGH
 }
