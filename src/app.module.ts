@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import configuration from './config/configuration';
 import { UsersModule } from './users/users.module';
 import { ProjectsModule } from './projects/projects.module';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ProjectsModule } from './projects/projects.module';
     AuthModule,
     UsersModule,
     ProjectsModule,
+    TasksModule,
     PrismaModule,
   ],
 })
