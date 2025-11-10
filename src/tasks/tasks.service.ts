@@ -27,8 +27,7 @@ interface TaskWithRelations extends Task {
 @Injectable()
 export class TasksService {
   constructor(private prisma: PrismaService) {}
-
-  async createTask(
+ async createTask(
     userId: string,
     createTaskDto: CreateTaskDto,
   ): Promise<TaskWithRelations> {
@@ -44,6 +43,35 @@ export class TasksService {
       throw new NotFoundException('Project not found');
     }
 
+    // Validate assigned user exists in our database
+    let assignedUserId = null;
+    if (createTaskDto.assignedUserId) {
+      // Check if this is a Clerk user ID (starts with "user_")
+      if (createTaskDto.assignedUserId.startsWith('user_')) {
+        // Find the local user by Clerk ID
+        const assignedUser = await this.prisma.user.findUnique({
+          where: { clerkId: createTaskDto.assignedUserId },
+        });
+        
+        if (!assignedUser) {
+          throw new BadRequestException('Assigned user not found in system');
+        }
+        
+        assignedUserId = assignedUser.id;
+      } else {
+        // It's already a local user ID, verify it exists
+        const assignedUser = await this.prisma.user.findUnique({
+          where: { id: createTaskDto.assignedUserId },
+        });
+        
+        if (!assignedUser) {
+          throw new BadRequestException('Assigned user not found');
+        }
+        
+        assignedUserId = createTaskDto.assignedUserId;
+      }
+    }
+
     const task = await this.prisma.task.create({
       data: {
         title: createTaskDto.title,
@@ -52,7 +80,7 @@ export class TasksService {
         priority: createTaskDto.priority || Priority.MEDIUM,
         dueDate: createTaskDto.dueDate ? new Date(createTaskDto.dueDate) : null,
         tags: createTaskDto.tags || [],
-        assignedUserId: createTaskDto.assignedUserId || null,
+        assignedUserId: assignedUserId, // Use the mapped local user ID
         projectId: createTaskDto.projectId,
       },
       include: {
@@ -61,6 +89,7 @@ export class TasksService {
             id: true,
             name: true,
             email: true,
+            clerkId: true, // Include clerkId for frontend mapping
           },
         },
         project: {
@@ -79,6 +108,7 @@ export class TasksService {
     return task as TaskWithRelations;
   }
 
+  // Also update the updateTask method
   async updateTask(
     userId: string,
     taskId: string,
@@ -95,6 +125,33 @@ export class TasksService {
 
     if (!task) {
       throw new NotFoundException('Task not found');
+    }
+
+    // Handle assignedUserId mapping if provided
+    if (updateData.assignedUserId && typeof updateData.assignedUserId === 'string') {
+      const assignedUserId = updateData.assignedUserId as string;
+      
+      if (assignedUserId.startsWith('user_')) {
+        // Find the local user by Clerk ID
+        const assignedUser = await this.prisma.user.findUnique({
+          where: { clerkId: assignedUserId },
+        });
+        
+        if (!assignedUser) {
+          throw new BadRequestException('Assigned user not found in system');
+        }
+        
+        updateData.assignedUserId = assignedUser.id;
+      } else {
+        // Verify local user exists
+        const assignedUser = await this.prisma.user.findUnique({
+          where: { id: assignedUserId },
+        });
+        
+        if (!assignedUser) {
+          throw new BadRequestException('Assigned user not found');
+        }
+      }
     }
 
     // Ensure dueDate is properly formatted
@@ -114,6 +171,7 @@ export class TasksService {
             id: true,
             name: true,
             email: true,
+            clerkId: true, // Include clerkId
           },
         },
         project: {

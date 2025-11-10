@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from '@prisma/client';
 
@@ -10,6 +10,8 @@ interface ClerkUser {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async findOrCreate(clerkUser: ClerkUser): Promise<User> {
@@ -18,17 +20,25 @@ export class UsersService {
     });
 
     if (!user) {
+      this.logger.log(`Creating new user for Clerk ID: ${clerkUser.clerkId}`);
+      
       // Ensure email is provided, use a fallback if not
       const email = clerkUser.email || `${clerkUser.clerkId}@example.com`;
       const name = clerkUser.name || 'User';
 
-      user = await this.prisma.user.create({
-        data: {
-          clerkId: clerkUser.clerkId,
-          email: email,
-          name: name,
-        },
-      });
+      try {
+        user = await this.prisma.user.create({
+          data: {
+            clerkId: clerkUser.clerkId,
+            email: email,
+            name: name,
+          },
+        });
+        this.logger.log(`Created user with ID: ${user.id}`);
+      } catch (error) {
+        this.logger.error(`Failed to create user: ${error.message}`);
+        throw error;
+      }
     }
 
     return user;
@@ -50,10 +60,18 @@ export class UsersService {
     return await this.prisma.user.findMany({
       select: {
         id: true,
+        clerkId: true, // Include clerkId for frontend mapping
         name: true,
         email: true,
         createdAt: true,
       },
+    });
+  }
+
+  // New method to get user by Clerk ID for task assignment
+  async getUserByClerkId(clerkId: string): Promise<User | null> {
+    return await this.prisma.user.findUnique({
+      where: { clerkId },
     });
   }
 }
