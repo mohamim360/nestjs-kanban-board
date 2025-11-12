@@ -27,7 +27,7 @@ interface AuthenticatedRequest {
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const token = this.extractToken(request);
 
@@ -41,7 +41,7 @@ export class ClerkAuthGuard implements CanActivate {
     try {
       // For development, let's decode the JWT to get user info
       // In production, verify with Clerk's API
-      const payload = this.decodeJwt(token) as ClerkPayload;
+      const payload = this.decodeJwt(token);
       console.log('JWT Payload:', payload);
 
       if (!payload.sub) {
@@ -62,7 +62,7 @@ export class ClerkAuthGuard implements CanActivate {
       };
 
       console.log('Auth successful - user assigned:', request.user);
-      return true;
+      return Promise.resolve(true);
     } catch (error: unknown) {
       console.error('Token verification failed:', error);
       throw new UnauthorizedException('Invalid token');
@@ -84,7 +84,7 @@ export class ClerkAuthGuard implements CanActivate {
   }
 
   // Simple JWT decoding (for development only)
-  private decodeJwt(token: string): any {
+  private decodeJwt(token: string): ClerkPayload {
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -94,7 +94,7 @@ export class ClerkAuthGuard implements CanActivate {
           .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
           .join(''),
       );
-      return JSON.parse(jsonPayload);
+      return JSON.parse(jsonPayload) as ClerkPayload;
     } catch (error) {
       console.error('JWT decoding failed:', error);
       throw new Error('Invalid JWT format');

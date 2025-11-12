@@ -21,7 +21,7 @@ export class UsersService {
 
     if (!user) {
       this.logger.log(`Creating new user for Clerk ID: ${clerkUser.clerkId}`);
-      
+
       // Ensure email is provided, use a fallback if not
       const email = clerkUser.email || `${clerkUser.clerkId}@example.com`;
       const name = clerkUser.name || 'User';
@@ -35,8 +35,10 @@ export class UsersService {
           },
         });
         this.logger.log(`Created user with ID: ${user.id}`);
-      } catch (error) {
-        this.logger.error(`Failed to create user: ${error.message}`);
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error(`Failed to create user: ${errorMessage}`);
         throw error;
       }
     }

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskStatus, Priority, Task, Prisma } from '@prisma/client';
@@ -14,6 +18,7 @@ interface TaskWithRelations extends Task {
     id: string;
     name: string;
     email: string;
+    clerkId?: string;
   } | null;
   project: {
     user: {
@@ -27,7 +32,8 @@ interface TaskWithRelations extends Task {
 @Injectable()
 export class TasksService {
   constructor(private prisma: PrismaService) {}
- async createTask(
+
+  async createTask(
     userId: string,
     createTaskDto: CreateTaskDto,
   ): Promise<TaskWithRelations> {
@@ -52,22 +58,22 @@ export class TasksService {
         const assignedUser = await this.prisma.user.findUnique({
           where: { clerkId: createTaskDto.assignedUserId },
         });
-        
+
         if (!assignedUser) {
           throw new BadRequestException('Assigned user not found in system');
         }
-        
+
         assignedUserId = assignedUser.id;
       } else {
         // It's already a local user ID, verify it exists
         const assignedUser = await this.prisma.user.findUnique({
           where: { id: createTaskDto.assignedUserId },
         });
-        
+
         if (!assignedUser) {
           throw new BadRequestException('Assigned user not found');
         }
-        
+
         assignedUserId = createTaskDto.assignedUserId;
       }
     }
@@ -128,26 +134,29 @@ export class TasksService {
     }
 
     // Handle assignedUserId mapping if provided
-    if (updateData.assignedUserId && typeof updateData.assignedUserId === 'string') {
+    if (
+      updateData.assignedUserId &&
+      typeof updateData.assignedUserId === 'string'
+    ) {
       const assignedUserId = updateData.assignedUserId as string;
-      
+
       if (assignedUserId.startsWith('user_')) {
         // Find the local user by Clerk ID
         const assignedUser = await this.prisma.user.findUnique({
           where: { clerkId: assignedUserId },
         });
-        
+
         if (!assignedUser) {
           throw new BadRequestException('Assigned user not found in system');
         }
-        
+
         updateData.assignedUserId = assignedUser.id;
       } else {
         // Verify local user exists
         const assignedUser = await this.prisma.user.findUnique({
           where: { id: assignedUserId },
         });
-        
+
         if (!assignedUser) {
           throw new BadRequestException('Assigned user not found');
         }
@@ -160,7 +169,13 @@ export class TasksService {
     }
 
     // Remove any fields that shouldn't be updated directly
-    const { id, createdAt, updatedAt, ...cleanUpdateData } = updateData as any;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, createdAt, updatedAt, ...cleanUpdateData } =
+      updateData as Prisma.TaskUpdateInput & {
+        id?: string;
+        createdAt?: Date;
+        updatedAt?: Date;
+      };
 
     const updatedTask = await this.prisma.task.update({
       where: { id: taskId },
