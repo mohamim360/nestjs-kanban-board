@@ -50,7 +50,7 @@ export class TasksService {
     }
 
     // Validate assigned user exists in our database
-    let assignedUserId = null;
+    let assignedUserId: string | null = null;
     if (createTaskDto.assignedUserId) {
       // Check if this is a Clerk user ID (starts with "user_")
       if (createTaskDto.assignedUserId.startsWith('user_')) {
@@ -134,11 +134,12 @@ export class TasksService {
     }
 
     // Handle assignedUserId mapping if provided
+    const updateDataAny = updateData as any;
     if (
-      updateData.assignedUserId &&
-      typeof updateData.assignedUserId === 'string'
+      updateDataAny.assignedUserId &&
+      typeof updateDataAny.assignedUserId === 'string'
     ) {
-      const assignedUserId = updateData.assignedUserId as string;
+      const assignedUserId = updateDataAny.assignedUserId as string;
 
       if (assignedUserId.startsWith('user_')) {
         // Find the local user by Clerk ID
@@ -150,7 +151,7 @@ export class TasksService {
           throw new BadRequestException('Assigned user not found in system');
         }
 
-        updateData.assignedUserId = assignedUser.id;
+        updateDataAny.assignedUserId = assignedUser.id;
       } else {
         // Verify local user exists
         const assignedUser = await this.prisma.user.findUnique({
@@ -171,7 +172,7 @@ export class TasksService {
     // Remove any fields that shouldn't be updated directly
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, createdAt, updatedAt, ...cleanUpdateData } =
-      updateData as Prisma.TaskUpdateInput & {
+      updateDataAny as any & {
         id?: string;
         createdAt?: Date;
         updatedAt?: Date;

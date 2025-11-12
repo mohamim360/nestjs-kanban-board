@@ -8,7 +8,7 @@ interface ClerkUserResponse {
   last_name?: string;
 }
 
-interface FormattedUser {
+export interface FormattedUser {
   id: string;
   email: string;
   name: string;
