@@ -1,37 +1,54 @@
 import { NestFactory } from '@nestjs/core';
+import { ExpressAdapter } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
+import express from 'express';
 import { AppModule } from './app.module';
 
-async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+const expressApp = express();
+const adapter = new ExpressAdapter(expressApp);
 
-  app.useGlobalPipes(new ValidationPipe());
+let app: any;
 
-  // Enhanced CORS configuration
-  app.enableCors({
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Requested-With',
-      'Accept',
-      'Origin',
-      'Access-Control-Request-Method',
-      'Access-Control-Request-Headers',
-    ],
-    exposedHeaders: ['Authorization', 'Content-Length', 'X-Total-Count'],
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
-  });
+async function createNestServer() {
+  if (!app) {
+    app = await NestFactory.create(AppModule, adapter, {
+      logger: ['error', 'warn', 'log'],
+    });
 
-  await app.listen(process.env.PORT || 3000);
-  console.log(
-    `🚀 Backend running on: http://localhost:${process.env.PORT || 3000}`,
-  );
+    app.useGlobalPipes(new ValidationPipe());
+
+    app.enableCors({
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'Accept',
+        'Origin',
+        'Access-Control-Request-Method',
+        'Access-Control-Request-Headers',
+      ],
+      exposedHeaders: ['Authorization', 'Content-Length', 'X-Total-Count'],
+      preflightContinue: false,
+      optionsSuccessStatus: 204,
+    });
+
+    await app.init();
+  }
+  return app;
 }
 
-bootstrap().catch((error: Error) => {
-  console.error('Failed to start application:', error);
-  process.exit(1);
-});
+//  Run locally 
+if (process.env.NODE_ENV !== 'production') {
+  createNestServer().then(async (app) => {
+    await app.listen(3000);
+    console.log('🚀 Server running on http://localhost:3000');
+  });
+}
+
+// Export for Vercel (serverless function)
+export default async (req: any, res: any) => {
+  await createNestServer();
+  return expressApp(req, res);
+};
